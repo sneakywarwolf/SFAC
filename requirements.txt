@@ -1,0 +1,6 @@
+sys
+csv
+tqdm
+requests==2.32.3
+progress==1.6
+dnspython==2.7.0
