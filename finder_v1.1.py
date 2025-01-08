@@ -27,28 +27,48 @@ def run_sublist3r(domain):
 
     try:
         print_status("Starting Sublist3r...")
-        result = subprocess.run(
-            ['python', sublist3r_path, '-b', '-d', domain, '-t', '50', '-o', 'sublist3r_output.txt'],
-            capture_output=True,
+        result = subprocess.Popen(
+            ['python', sublist3r_path, '-d', domain, '-o', 'sublist3r_output.txt'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True
         )
 
-        # Debug output for troubleshooting
+        progress_bar = tqdm(desc="Running Sublist3r", unit="line", position=0, dynamic_ncols=True)
+        subdomains = []
+
+        # Process Sublist3r's output line by line
+        while True:
+            line = result.stdout.readline()
+            if not line and result.poll() is not None:
+                break
+
+            if line:
+                progress_bar.update(1)
+                progress_bar.set_postfix_str(line.strip())
+                if "Found: " in line:
+                    subdomain = line.split("Found: ")[-1].strip()
+                    subdomains.append(subdomain)
+
+        progress_bar.close()
+
+        stdout, stderr = result.communicate()
         print_status("Sublist3r execution completed.")
-        print(f"Sublist3r stdout: {result.stdout}")
-        print(f"Sublist3r stderr: {result.stderr}")
 
         if result.returncode == 0:
             if os.path.exists('sublist3r_output.txt'):
                 with open('sublist3r_output.txt', 'r') as file:
-                    subdomains = [line.strip() for line in file.readlines()]
-                print_status(f"Sublist3r found {len(subdomains)} subdomains.")
+                    file_subdomains = [line.strip() for line in file.readlines()]
+                    subdomains.extend(file_subdomains)
+
+                subdomains = list(set(subdomains))  # Remove duplicates
+                print_status(f"Sublist3r found {len(subdomains)} unique subdomains.")
                 return subdomains
             else:
                 print("Error: Sublist3r did not generate an output file.")
                 return []
         else:
-            print(f"Sublist3r error: {result.stderr}")
+            print(f"Sublist3r error: {stderr}")
             return []
     except Exception as e:
         print(f"Error running Sublist3r: {e}")
