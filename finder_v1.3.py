@@ -7,6 +7,7 @@ import subprocess  # Runs subprocesses and interacts with system commands
 import time  # Provides time-related functions
 from concurrent.futures import ThreadPoolExecutor  # Manages multithreading
 import re  # Adds regular expressions for pattern matching and validation
+import argparse
 
 def list_files_in_directory():
     """List files in the current working directory."""
@@ -97,44 +98,34 @@ def check_subdomains_concurrently(subdomain_list, output_file):
     write_filtered_to_csv(results, output_file)
 
 if __name__ == "__main__":
-    print("Choose an option:")
-    print("1: Enter a domain")
-    print("2: Provide a list of subdomains")
+    parser = argparse.ArgumentParser(description="Subdomain enumeration and accessibility checker.")
+    parser.add_argument("-D", "--domain", help="Domain to enumerate subdomains for.")
+    parser.add_argument("-t", "--textfile", help="Path to the text file containing subdomains.")
+    parser.add_argument("-o", "--output", help="Output CSV file to save results.", default=f"output_{int(time.time())}.csv")
 
-    choice = input("Enter your choice (1 or 2): ").strip()
+    args = parser.parse_args()
 
-    if choice == "1":
-        domain = input("Enter the domain: ").strip()
-        output_file = input("Enter the output CSV file name (or press Enter for default): ").strip()
-        if not output_file:
-            output_file = f"output_{int(time.time())}.csv"
+    if args.domain:
+        output_file = args.output
         if not output_file.endswith(".csv"):
             output_file += ".csv"
 
-        subdomains = run_sublist3r(domain)
+        subdomains = run_sublist3r(args.domain)
         if subdomains:
             check_subdomains_concurrently(subdomains, output_file)
         else:
             print_status("No subdomains found.")
 
-    elif choice == "2":
-        list_files_in_directory()
-        subdomain_file = input("\nEnter the subdomain list file: ").strip()
-        output_file = input("Enter the output CSV file name (or press Enter for default): ").strip()
-        if not output_file:
-            output_file = f"output_{int(time.time())}.csv"
-        if not output_file.endswith(".csv"):
-            output_file += ".csv"
-
-        if os.path.exists(subdomain_file):
-            with open(subdomain_file, 'r') as file:
+    elif args.textfile:
+        if os.path.exists(args.textfile):
+            with open(args.textfile, 'r') as file:
                 subdomains = [line.strip() for line in file.readlines()]
             if subdomains:
-                check_subdomains_concurrently(subdomains, output_file)
+                check_subdomains_concurrently(subdomains, args.output)
             else:
                 print_status("Subdomain list is empty.")
         else:
-            print(f"Error: File {subdomain_file} not found.")
+            print(f"Error: File {args.textfile} not found.")
     else:
-        print("Invalid choice. Please run the script again.")
+        parser.print_help()
         sys.exit(1)
