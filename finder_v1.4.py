@@ -1,13 +1,15 @@
 import os  # Provides functions to interact with the operating system
-import csv  # Handles reading and writing CSV files
+import csv  # Facilitates reading and writing CSV files
 import sys  # Access system-specific parameters and functions
-import requests  # Simplifies making HTTP requests
-from tqdm import tqdm  # Displays progress bars for loops
-import subprocess  # Runs subprocesses and interacts with system commands
+import requests  # Simplifies HTTP requests (GET, POST, etc.)
+from tqdm import tqdm  # Displays progress bars for loops or operations
+import subprocess  # Allows execution of system commands
 import time  # Provides time-related functions
-from concurrent.futures import ThreadPoolExecutor  # Manages multithreading
-import re  # Adds regular expressions for pattern matching and validation
-import argparse
+from concurrent.futures import ThreadPoolExecutor  # Enables multithreading with a high-level interface
+import re  # Supports regular expression operations
+import argparse  # Parses command-line arguments and options
+import socket  # Facilitates networking operations and socket programming
+import random  # Generates random numbers and choices
 
 ascii_art = """
                                                                                  
@@ -29,15 +31,9 @@ S:::::::::::::::SS F::::::::FF   A:::::A                 A:::::A CCC::::::::::::
  SSSSSSSSSSSSSSS   FFFFFFFFFFF  AAAAAAA                   AAAAAAA   CCCCCCCCCCCCC
      
                                     Subdomain Finder and Accessibility Checker  
-                                                                    v1.3 created by Sneakywarwolf
+                                                                    v1.4 created by Sneakywarwolf
 """
 print(ascii_art)
-
-def list_files_in_directory():
-    """List files in the current working directory."""
-    print("\nFiles in the current directory:")
-    for file in os.listdir(os.getcwd()):
-        print(file)
 
 def print_status(message):
     """Print a status message with a timestamp."""
@@ -86,10 +82,25 @@ def is_valid_subdomain(subdomain):
     subdomain_regex = r'^(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.(?!-)[A-Za-z0-9.-]{1,255}$'
     return re.match(subdomain_regex, subdomain) is not None
 
-def check_subdomain(subdomain):
+def resolve_subdomain(subdomain, resolver_ip=None):
+    """Resolve a subdomain to an IP address using a custom resolver if provided."""
+    try:
+        resolver = dns.resolver.Resolver()
+        if resolver_ip:
+            resolver.nameservers = [resolver_ip]
+        answers = resolver.resolve(subdomain, 'A')
+        return answers[0].to_text()  # Return the first resolved IP
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.Timeout) as e:
+        return None
+
+def check_subdomain(subdomain, resolver_ip=None):
     """Check the accessibility of a single subdomain."""
     if not is_valid_subdomain(subdomain):
-        return {"Subdomain": subdomain, "Status Code": "Invalid", "Accessible": "No"}
+        return {"Subdomain": subdomain, "Status Code": "Invalid", "Accessible": "No", "Resolved IP": "N/A"}
+
+    resolved_ip = resolve_subdomain(subdomain, resolver_ip)
+    if not resolved_ip:
+        return {"Subdomain": subdomain, "Status Code": "Unresolved", "Accessible": "No", "Resolved IP": "N/A"}
 
     try:
         response = requests.get(f"http://{subdomain}", timeout=10)
@@ -99,35 +110,54 @@ def check_subdomain(subdomain):
         status_code = "N/A"
         accessible = "No"
 
-    return {"Subdomain": subdomain, "Status Code": status_code, "Accessible": accessible}
+    return {"Subdomain": subdomain, "Status Code": status_code, "Accessible": accessible, "Resolved IP": resolved_ip}
+
+def retry_with_resolvers(subdomain, resolvers):
+    """Retry checking the accessibility of a subdomain with random resolvers."""
+    for resolver in resolvers:
+        result = check_subdomain(subdomain, resolver_ip=resolver)
+        if result["Accessible"] == "Yes":
+            return result
+    return {"Subdomain": subdomain, "Status Code": "Unresolved", "Accessible": "No", "Resolved IP": "N/A"}
 
 def write_filtered_to_csv(results, output_file):
     """Write only valid subdomains to a CSV file."""
     valid_results = [result for result in results if is_valid_subdomain(result["Subdomain"])]
     
     with open(output_file, mode='w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ["Subdomain", "Status Code", "Accessible"]
+        fieldnames = ["Subdomain", "Status Code", "Accessible", "Resolved IP"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(valid_results)
     
     print_status(f"Filtered results saved to {output_file}")
 
-def check_subdomains_concurrently(subdomain_list, output_file):
+def check_subdomains_concurrently(subdomain_list, resolvers, output_file):
     """Check subdomains concurrently and save results to a CSV file."""
     print_status(f"Checking accessibility of {len(subdomain_list)} subdomains...")
     with ThreadPoolExecutor(max_workers=10) as executor:
-        results = list(tqdm(executor.map(check_subdomain, subdomain_list), total=len(subdomain_list), desc="Checking subdomains"))
+        results = list(tqdm(executor.map(lambda sub: retry_with_resolvers(sub, resolvers), subdomain_list), total=len(subdomain_list), desc="Checking subdomains"))
     
     write_filtered_to_csv(results, output_file)
+
+def load_resolvers(file_path):
+    """Load resolver IPs from a file."""
+    if not os.path.exists(file_path):
+        print_status(f"Resolver file '{file_path}' not found. Continuing without custom resolvers.")
+        return []
+    with open(file_path, 'r') as file:
+        return [line.strip() for line in file.readlines() if line.strip()]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Subdomain enumeration and accessibility checker.")
     parser.add_argument("-D", "--domain", help="Domain to enumerate subdomains for.")
     parser.add_argument("-t", "--textfile", help="Path to the text file containing subdomains.")
     parser.add_argument("-o", "--output", help="Output CSV file to save results.", default=f"output_{int(time.time())}.csv")
+    parser.add_argument("-r", "--resolvers", help="Path to the resolvers.txt file.", default="resolvers.txt")
 
     args = parser.parse_args()
+
+    resolvers = load_resolvers(args.resolvers)
 
     if args.domain:
         output_file = args.output
@@ -136,7 +166,7 @@ if __name__ == "__main__":
 
         subdomains = run_sublist3r(args.domain)
         if subdomains:
-            check_subdomains_concurrently(subdomains, output_file)
+            check_subdomains_concurrently(subdomains, resolvers, output_file)
         else:
             print_status("No subdomains found.")
 
@@ -145,7 +175,7 @@ if __name__ == "__main__":
             with open(args.textfile, 'r') as file:
                 subdomains = [line.strip() for line in file.readlines()]
             if subdomains:
-                check_subdomains_concurrently(subdomains, args.output)
+                check_subdomains_concurrently(subdomains, resolvers, args.output)
             else:
                 print_status("Subdomain list is empty.")
         else:

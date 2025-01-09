@@ -7,6 +7,29 @@ import subprocess
 import dns.resolver
 import time
 
+ascii_art = """
+                                                                                 
+   SSSSSSSSSSSSSSS FFFFFFFFFFFFFFFFFFFFFF      AAA                  CCCCCCCCCCCCC
+ SS:::::::::::::::SF::::::::::::::::::::F     A:::A              CCC::::::::::::C
+S:::::SSSSSS::::::SF::::::::::::::::::::F    A:::::A           CC:::::::::::::::C
+S:::::S     SSSSSSSFF::::::FFFFFFFFF::::F   A:::::::A         C:::::CCCCCCCC::::C
+S:::::S              F:::::F       FFFFFF  A:::::::::A       C:::::C       CCCCCC
+S:::::S              F:::::F              A:::::A:::::A     C:::::C              
+ S::::SSSS           F::::::FFFFFFFFFF   A:::::A A:::::A    C:::::C              
+  SS::::::SSSSS      F:::::::::::::::F  A:::::A   A:::::A   C:::::C              
+    SSS::::::::SS    F:::::::::::::::F A:::::A     A:::::A  C:::::C              
+       SSSSSS::::S   F::::::FFFFFFFFFFA:::::AAAAAAAAA:::::A C:::::C              
+            S:::::S  F:::::F         A:::::::::::::::::::::AC:::::C              
+            S:::::S  F:::::F        A:::::AAAAAAAAAAAAA:::::AC:::::C       CCCCCC
+SSSSSSS     S:::::SFF:::::::FF     A:::::A             A:::::AC:::::CCCCCCCC::::C
+S::::::SSSSSS:::::SF::::::::FF    A:::::A               A:::::ACC:::::::::::::::C
+S:::::::::::::::SS F::::::::FF   A:::::A                 A:::::A CCC::::::::::::C
+ SSSSSSSSSSSSSSS   FFFFFFFFFFF  AAAAAAA                   AAAAAAA   CCCCCCCCCCCCC
+                                                                    v1.3 created by Sneakywarwolf
+"""
+print(ascii_art)
+
+
 def list_files_in_directory():
     """Listing files in the current working directory."""
     print("\nFiles in the current directory are as follows:")
