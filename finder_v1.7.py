@@ -39,25 +39,9 @@ S:::::::::::::::SS F::::::::FF   A:::::A                 A:::::A CCC::::::::::::
  SSSSSSSSSSSSSSS   FFFFFFFFFFF  AAAAAAA                   AAAAAAA   CCCCCCCCCCCCC
      
                                     Subdomain Finder and Accessibility Checker  
-                                                                    v1.6 created by Sneakywarwolf
+                                                                    v1.7 created by Sneakywarwolf
 """
 print(Fore.MAGENTA + ascii_art + Style.RESET_ALL)
-
-def validate_selenium_dependencies():
-    """Validate if ChromeDriver and Google Chrome are installed, and install if not found."""
-    try:
-        # Check for ChromeDriver and Google Chrome
-        chromedriver_installed = shutil.which("chromedriver") is not None
-        chrome_installed = shutil.which("google-chrome") is not None or shutil.which("chrome") is not None
-
-        if not (chromedriver_installed and chrome_installed):
-            print_status("Missing Selenium dependencies. Installing...")
-            install_selenium_dependencies()
-        else:
-            print_status("Selenium dependencies validated successfully.")
-    except Exception as e:
-        print_status(f"Error validating or installing Selenium dependencies: {e}")
-        sys.exit(1)
 
 def list_files_in_directory():
     """List files in the current working directory."""
@@ -158,8 +142,6 @@ def print_status(message, message_type="info"):
 def take_screenshot(subdomain, folder):
     """Take a screenshot of a subdomain and save it in the specified folder."""
     try:
-        validate_selenium_dependencies()  # Validate and install dependencies before proceeding
-
         # Ensure the folder exists
         os.makedirs(folder, exist_ok=True)
 
@@ -183,6 +165,7 @@ def take_screenshot(subdomain, folder):
     except Exception as e:
         print_status(f"Failed to take screenshot of {subdomain}: {e}", message_type="error")
 
+
 # Example of logging DevTools messages in yellow
 def log_devtools_message(message):
     """Log DevTools related messages in yellow."""
@@ -205,64 +188,15 @@ def check_subdomains_concurrently(subdomain_list, output_file, snapshot_folder=N
         snapshot_folder = "snapshots"
 
     # Take screenshots of accessible subdomains
+    accessible_subdomains = [result for result in results if result["Accessible"] == "Yes"]
+
     os.makedirs(snapshot_folder, exist_ok=True)
-    print_status("Taking screenshots of accessible subdomains...")
-    for result in results:
-        if result["Accessible"] == "Yes":
+    if accessible_subdomains:
+        print_status("Taking screenshots of accessible subdomains...")
+        for result in accessible_subdomains:
             take_screenshot(result["Subdomain"], snapshot_folder)
-
-def install_selenium_dependencies():
-    """Ensure ChromeDriver and Google Chrome are installed and configured."""
-    # Determine the operating system
-    os_type = platform.system().lower()
-    is_windows = os_type == "windows"
-    is_linux = os_type == "linux"
-    is_mac = os_type == "darwin"
-
-    # Check if Google Chrome is installed
-    chrome_installed = shutil.which("google-chrome") or shutil.which("chrome")
-    if not chrome_installed:
-        print_status("Google Chrome not found. Installing it...")
-
-        if is_linux:
-            subprocess.run(["sudo", "apt-get", "update"], check=True)
-            subprocess.run(["sudo", "apt-get", "install", "-y", "google-chrome-stable"], check=True)
-        elif is_windows:
-            chrome_url = "https://dl.google.com/chrome/install/latest/chrome_installer.exe"
-            installer_path = "chrome_installer.exe"
-            urllib.request.urlretrieve(chrome_url, installer_path)
-            subprocess.run([installer_path], check=True)
-            os.remove(installer_path)
-        elif is_mac:
-            subprocess.run(["brew", "install", "--cask", "google-chrome"], check=True)
-        else:
-            print_status("Unsupported OS for automatic Chrome installation.")
-            sys.exit(1)
-
-    # Check if ChromeDriver is installed
-    chromedriver_path = shutil.which("chromedriver")
-    if not chromedriver_path:
-        print_status("ChromeDriver not found. Installing it...")
-
-        # Determine ChromeDriver URL
-        chrome_version_output = subprocess.check_output(["google-chrome", "--version"]).decode("utf-8").strip()
-        chrome_version = re.search(r"\d+", chrome_version_output).group()
-        driver_url = f"https://chromedriver.storage.googleapis.com/{chrome_version}/chromedriver_{'win32' if is_windows else 'linux64' if is_linux else 'mac64'}.zip"
-
-        # Download and extract ChromeDriver
-        driver_zip = "chromedriver.zip"
-        urllib.request.urlretrieve(driver_url, driver_zip)
-        with zipfile.ZipFile(driver_zip, "r") as zip_ref:
-            zip_ref.extractall(".")
-        os.remove(driver_zip)
-
-        # Ensure ChromeDriver is accessible
-        chromedriver_path = "./chromedriver"
-        if is_linux or is_mac:
-            subprocess.run(["chmod", "+x", chromedriver_path], check=True)
-        shutil.move(chromedriver_path, "/usr/local/bin/" if not is_windows else os.getcwd())
-
-    print_status("Selenium dependencies installed successfully.")
+    else:
+        print_status("No accessible domains found, therefore no screenshots to capture.", message_type="error")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Subdomain enumeration and accessibility checker.")
