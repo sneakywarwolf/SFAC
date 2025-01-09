@@ -1,6 +1,6 @@
-sys
-csv
-tqdm
+tqdm==4.67.1
 requests==2.32.3
 progress==1.6
 dnspython==2.7.0
+selenium==4.12.0
+colorama==0.4.6
