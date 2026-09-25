@@ -1,235 +1,137 @@
+# 🕵️ SFAC — Subdomain Finder & Accessibility Checker
 
-# 🕵️‍♂️ **SFAC - Subdomain Finder & Accessibility Checker**
+> **Created by:** Sneakywarwolf 🐺
 
-  
-
->  **Version:** 1.7 🚀 | **Created by:** Sneakywarwolf 🐺
-
-  
-
-🎯 **Discover subdomains, check their accessibility, and capture screenshots — all in one script!**
-
-SFAC is your ultimate tool for subdomain enumeration and accessibility checks. Whether you're a cybersecurity enthusiast 🛡️ or just curious about the domains lurking under a main website 🌐, SFAC has got your back!
-
-  
+Discover subdomains, check which are live, capture screenshots, and export a
+precise CSV — from a single self-contained script.
 
 ---
 
-  
+## What it does
 
-## 📖 **Features**
-
-  
-
-- 🎯 **Subdomain Enumeration:** Automatically find unique subdomains using Sublist3r.
-
-- ✅ **Accessibility Check:** Test if subdomains are live and accessible.
-
-- 📸 **Screenshot Capture:** Snap screenshots of live domains in headless mode.
-
-- 💾 **CSV Output:** Save results in a neatly organized CSV file.
-
-- 🎨 **Color-Coded CLI Output:** Clear, visually appealing logs to make debugging fun!
-
-  
+- **Subdomain discovery** from keyless passive sources (crt.sh, HackerTarget,
+  AlienVault OTX, Anubis-DB), with optional DNS brute-force. If `subfinder` is
+  on your `PATH` or the vendored `Sublist3r/` package is present, SFAC uses
+  them too — but neither is required.
+- **Accessibility check** over **HTTPS first, then HTTP**. Any HTTP response
+  marks a host **Live**; only `2xx` marks it **Accessible**. The exact status
+  code, final URL, redirect flag, page title, `Server` header, and resolved
+  IPs are recorded.
+- **DNS-aware:** hosts are resolved first, so non-resolving names are labelled
+  instead of burning a full HTTP timeout.
+- **Scope control:** discovered names are restricted to the target domain by
+  default (`--no-scope` to disable).
+- **Screenshots** (optional) of live hosts using one reused headless-Chrome
+  instance.
+- **CSV output**, backward-compatible with the old columns
+  (`Subdomain, Status Code, Accessible`) plus richer fields. Optional JSON Lines.
 
 ---
 
-  
+## Requirements
 
-## ⚡ **Getting Started**
+- **Python 3.8+**
+- `pip install -r requirements.txt` (installs `requests`, `dnspython`, `tqdm`,
+  `colorama`, and `selenium`).
+- **Screenshots only:** Google Chrome / Chromium. Selenium 4.6+ provisions a
+  matching driver automatically; otherwise point SFAC at one with
+  `--chromedriver` / `CHROMEDRIVER` and the browser with
+  `--chrome-binary` / `CHROME_BIN`.
 
-  
+> `subfinder` (Go) is optional. If present it is used automatically; API keys
+> configured for subfinder expand its coverage but are not required.
 
-### 🚧 **Prerequisites**
+---
 
-  
-
-1.  **Python 3.6+** 🐍
-
-2.  **Google Chrome** 🌐
-
-3.  **ChromeDriver** (Add it to your system PATH).
-
-  
-
-### 🛠️ **Setup**
-
-  
-
-1. Clone this repository:
+## Install
 
 ```bash
-git clone https://github.com/your-username/SFAC.git
+git clone https://github.com/sneakywarwolf/SFAC.git
 cd SFAC
-```
-2. Install the required Python dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
-  
 
-### 🏃‍♂️ **Usage**
+---
 
----------------
-
-  
-
-### 🎯 **Find Subdomains for a Domain**
-
-  ```bash
-python finder_v1.7.py -D example.com`
-```
-  
-
-### 📂 **Check Subdomains from a File**
-
-  
+## Usage
 
 ```bash
-`python  finder_v1.7.py  -t  subdomains.txt`
+# Enumerate + check a domain
+python sfac.py -D example.com
+
+# Add DNS brute-force with the built-in wordlist
+python sfac.py -D example.com --brute
+
+# Check hosts from a file (skips discovery)
+python sfac.py -t subdomains.txt
+
+# Save to a specific CSV, and also JSON Lines
+python sfac.py -D example.com -o results.csv --jsonl results.jsonl
+
+# Capture screenshots of live hosts into ./shots
+python sfac.py -D example.com -s shots
+
+# More threads, HTTPS only, rate-limited
+python sfac.py -D example.com -T 20 --https-only --delay 0.2
 ```
-  
 
-### 💾 **Save Results to a CSV**
+### Key options
 
-  
-  
+| Flag | Purpose |
+|------|---------|
+| `-D, --domain` | Target domain to enumerate |
+| `-t, --textfile` | File of hosts to check (skips discovery) |
+| `-o, --output` | Output CSV path |
+| `--jsonl` | Also write JSON Lines |
+| `-s, --snapshots [folder]` | Capture screenshots of live hosts |
+| `-T, --concurrency` | Worker threads (default 10) |
+| `--sources` | Comma-separated passive sources |
+| `--no-passive` / `--no-tools` | Skip web sources / external tools |
+| `--brute` / `--wordlist` | DNS brute-force (built-in or custom list) |
+| `--no-scope` | Do not restrict names to the target domain |
+| `--https-only` / `--http-only` | Restrict probe scheme |
+| `--no-redirects` | Do not follow HTTP redirects |
+| `--verify-tls` | Verify TLS certs (off by default) |
+| `--delay` / `--user-agent` | Rate limit / custom UA |
 
-`python  finder_v1.7.py  -D  example.com  -o  results.csv`
+Run `python sfac.py -h` for the full list.
 
-  
+---
 
-### 📸 **Enable Screenshots of Accessible Subdomains**
+## Output
 
-  
+CSV columns:
 
-`python  finder_v1.7.py  -D  example.com  -s  snapshots`
+```
+Subdomain, Status Code, Accessible, Live, Scheme, Final URL,
+Title, Server, IP Addresses, Redirected, Error, Screenshot
+```
 
-  
+- **Accessible** = `Yes` only for HTTP `2xx` (matches legacy behaviour).
+- **Live** = `Yes` for any HTTP response (2xx/3xx/4xx/5xx).
+- **Error** records why a host failed (e.g. `DNS resolution failed`, a TLS or
+  connection error), instead of silently dropping it.
 
-### 🧵 **Adjust Concurrency for Faster Checks**
+---
 
-  
+## Notes & limitations
 
-`python  finder_v1.7.py  -D  example.com  -T  20`
+- Passive-source coverage depends on those services being reachable and their
+  free-tier limits; each source is best-effort and skipped on error.
+- TLS verification is **off by default** because recon targets often use
+  self-signed or expired certificates; use `--verify-tls` to enforce it.
+- Following redirects can send traffic outside the target domain. Use
+  `--no-redirects` when your rules of engagement require it.
 
-  
+---
 
-*  *  *  *  *
+## ⚠️ Disclaimer
 
-  
+For **authorized security testing and educational use only**. Obtain explicit
+permission before testing any domain you do not own.
 
-🖥️  **Output**
+---
 
---------------
+## Contact
 
-  
-
--  **CSV Results:**
-
-Contains subdomain, status code, and accessibility information.
-
-  
-
--  **Screenshots:**
-
-Saved in the folder of your choice (default: `snapshots/`).
-
-  
-
--  **Sample Log:**
-
-  
-
-🕒 [16:36:01] Starting Sublist3r...
-
-✅ [16:36:12] Sublist3r found 22 unique subdomains.
-
-❌ [16:36:30] Failed to access subdomain: sub.example.com.
-
-✅ [16:36:45] Screenshot saved: snapshots/example_com.png`
-
-  
-
-* * * * *
-
-  
-
-✨  **Features  at  a  Glance**
-
---------------------------
-
--   🔍 **Subdomain Finder**: Quickly discover subdomains for a given domain using Sublist3r.
--   🚦 **Accessibility Checker**: Determine the accessibility of subdomains with detailed status codes.
--   📸 **Screenshot Capture**: Automatically take screenshots of accessible subdomains for better analysis.
--   📁 **CSV Export**: Save all findings into a clean, structured CSV file.
--   ⚡ **Concurrency Support**: Speed up the subdomain accessibility checks with multithreading.
--   🎨 **Color-Coded Output**: Visually distinct messages in the terminal for easy understanding.
--   🛠️ **Customizable Options**: Set domain, input file, output file, snapshot folder, and concurrency via CLI arguments.
--   ❌ **Handles Invalid Subdomains**: Filters and excludes invalid subdomains automatically.
--   🖥️ **Cross-Platform Compatibility**: Works seamlessly on Windows, macOS, and Linux.
-
-  
-
-* * * * *
-
-  
-
-## 🛡️  **Disclaimer**
-
-------------------
- 
-
-> This tool is for **educational purposes only**. Please do not use it for unauthorized activities. Always ensure you have the proper permissions before testing any domain.
-
- 
-* * * * *
-
-  
-
-💡  **Contributing**
-
--------------------
-
-  
-
-1.  Fork  the  repository  🍴
-
-2.  Create  a  new  branch:
-
-		git checkout -b feature/awesome-feature`
-
- 
-3.  Commit  your  changes:
-
-		git commit -m "Added an awesome feature 🚀"`
-
-  
-4.  Push  to  the  branch:
-
-		git push origin feature/awesome-feature`
-
-  
-5.  Submit  a  pull  request  🤝
-
-  
-
-* * * * *
-
-  
-
-## 📞  **Contact**
-
---------------
-
-  
-
-🔗  **GitHub:** [Sneakywarwolf](https://github.com/sneakywarwolf)   [![LinkedIn](https://img.shields.io/badge/-LinkedIn-blue?logo=linkedin)](https://www.linkedin.com/in/sneakywarwolf/)
-
-📧  **Email:**  sneakypentester@gmail.com
-
-* * * * *
-
-## 🚀 **Happy Hacking!** ✨
+🔗 **GitHub:** [Sneakywarwolf](https://github.com/sneakywarwolf) · 📧 sneakypentester@gmail.com
